@@ -1,8 +1,8 @@
 
-from keras.models import Sequential, Model
-from keras.layers import Dense, Dropout, Input, Lambda, Conv2D, Conv2DTranspose, MaxPool2D, UpSampling2D, Flatten, Reshape, Cropping2D
-from keras import backend as K
-from keras.losses import mse, binary_crossentropy
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Dense, Dropout, Input, Lambda, Conv2D, Conv2DTranspose, MaxPool2D, UpSampling2D, Flatten, Reshape, Cropping2D
+from tensorflow.keras import backend as K
+from tensorflow.keras.losses import mse, binary_crossentropy
 import math
 import numpy as np
 

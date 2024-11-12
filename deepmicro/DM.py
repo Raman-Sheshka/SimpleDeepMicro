@@ -14,18 +14,14 @@ from sklearn import cluster
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
-from sklearn.metrics import f1_score
+from sklearn.metrics import roc_auc_score, accuracy_score, precision_score, recall_score, f1_score
 
 # importing keras
-import keras
-import keras.backend as K
-from keras.wrappers.scikit_learn import KerasClassifier
-from keras.callbacks import EarlyStopping, ModelCheckpoint, LambdaCallback
-from keras.models import Model, load_model
+import tensorflow as tf
+import tensorflow.keras.backend as K
+from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LambdaCallback
+from tensorflow.keras.models import Model, load_model
 
 # importing util libraries
 import datetime
