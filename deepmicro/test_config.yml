@@ -1,0 +1,36 @@
+
+data_label_dict:
+  # Controls
+  n: 0
+  # Chirrhosis
+  cirrhosis: 1
+  # Colorectal Cancer
+  cancer: 1
+  small_adenoma: 0
+  # IBD
+  ibd_ulcerative_colitis: 1
+  ibd_crohn_disease: 1
+  # T2D and WT2D
+  t2d: 1
+  # Obesity
+  leaness: 0
+  obesity: 1
+
+# hyper-parameter grids for classifiers
+rf_hyper_parameters:
+  n_estimators: [100, 1001, 200]
+  max_features: ['sqrt', 'log2']
+  min_samples_leaf: [1, 2, 3, 4, 5]
+  criterion: ['gini', 'entropy']
+
+svm_hyper_parameters:
+  C: [-5, 6, 2]
+  kernel: ['linear']
+  gamma: [3, -15, -2]
+  kernel: ['rbf']
+
+mlp_hyper_parameters:
+  numHiddenLayers: [1, 2, 3]
+  epochs: [30, 50, 100, 200, 300]
+  numUnits: [10, 30, 50, 100]
+  dropout_rate: [0.1, 0.3]

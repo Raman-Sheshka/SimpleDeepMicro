@@ -36,6 +36,99 @@ from utils import parse_args
 #fix np.random.seed for reproducibility in numpy processing
 np.random.seed(7)
 
+
+
+class Experience:
+    def __init__(self,
+                 args:dict,
+                 seed:int):
+        self.args = args
+        self.seed = seed
+        self.dm = None
+        self.mode =
+
+    def run(self):
+        # create an object and load data_test
+        if self.args.data is None and self.args.custom_data is None:
+            print("[Error] Please specify an input file. (use -h option for help)")
+            exit()
+        elif self.args.data is not None:
+            self.dm = DeepMicrobiome(data=self.args.data + '.txt', seed=self.seed, data_dir=self.args.data_dir)
+            feature_string = ''
+            data_string = str(self.args.data)
+            if data_string.split('_')[0] == 'abundance':
+                feature_string = "k__"
+            if data_string.split('_')[0] == 'marker':
+                feature_string = "gi|"
+            self.dm.load_data(feature_string=feature_string, label_string='disease', label_dict=label_dict,
+                              dtype=dtypeDict[self.args.dataType])
+        elif self.args.custom_data is not None:
+            if self.args.custom_data_labels is None:
+                self.dm = DeepMicrobiome(data=self.args.custom_data, seed=self.seed, data_dir=self.args.data_dir)
+                self.dm.load_custom_data(dtype=dtypeDict[self.args.dataType])
+            else:
+                self.dm = DeepMicrobiome(data=self.args.custom_data, seed=self.seed, data_dir=self.args.data_dir)
+                self.dm.load_custom_data_with_labels(label_data=self.args.custom_data_labels, dtype=dtypeDict[self.args.dataType])
+        else:
+            exit()
+
+        num_rl_required = self.args.pca + self.args.ae + self.args.rp + self.args.vae + self.args.cae
+        if num_rl_required > 1:
+            raise ValueError('No multiple dimensionality Reduction')
+
+        self.dm.t_start = time.time()
+
+        # Representation learning (Dimensionality reduction)
+        if self.args.pca:
+            self.dm.pca()
+        if self.args.ae:
+            self.dm.ae(dims=[int(i) for i in self.args.dims.split(',')], act=self.args.act, epochs=self.args.max_epochs, loss=self.args.aeloss,
+                       latent_act=self.args.ae_lact, output_act=self.args.ae_oact, patience=self.args.patience, no_trn=self.args.no_trn)
+        if self.args.vae:
+            self.dm.vae(dims=[int(i) for i in self.args.dims.split(',')], act=self.args.act, epochs=self.args.max_epochs, loss=self.args.aeloss, output_act=self.args.ae_oact,
+                        patience=25 if self.args.patience == 20 else self.args.patience, beta=self.args.vae_beta, warmup=self.args.vae_warmup, warmup_rate=self.args.vae_warmup_rate, no_trn=self.args.no_trn)
+        if self.args.cae:
+            self.dm.cae(dims=[int(i) for i in self.args.dims.split(',')], act=self.args.act, epochs=self.args.max_epochs, loss=self.args.aeloss, output_act=self.args.ae_oact,
+                        patience=self.args.patience, rf_rate=self.args.rf_rate, st_rate=self.args.st_rate, no_trn=self.args.no_trn)
+        if self.args.rp:
+            self.dm.rp()
+
+        if self.args.save_rep:
+            if num_rl_required == 1:
+                rep_file = self.dm.data_dir + "results/" + self.dm.prefix + self.dm.data + "_rep.csv"
+                pd.DataFrame(self.dm.X_train).to_csv(rep_file, header=None, index=None)
+                print("The learned representation of the training set has been saved in '{}'".format(rep_file))
+            else:
+                print("Warning: Command option '--save_rep' is not applied as no representation learning or dimensionality reduction has been conducted.")
+
+        if self.args.no_clf or (self.args.data is None and self.args.custom_data_labels is None):
+            print("Classification task has been skipped.")
+        else:
+            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+            importlib.reload(tensorflow.keras)
+
+            if self.args.method == "svm":
+                self.dm.classification(hyper_parameters=svm_hyper_parameters, method='svm', cv=self.args.numFolds,
+                                       n_jobs=self.args.numJobs, scoring=self.args.scoring, cache_size=self.args.svm_cache)
+            elif self.args.method == "rf":
+                self.dm.classification(hyper_parameters=rf_hyper_parameters, method='rf', cv=self.args.numFolds,
+                                       n_jobs=self.args.numJobs, scoring=self.args.scoring)
+            elif self.args.method == "mlp":
+                self.dm.classification(hyper_parameters=mlp_hyper_parameters, method='mlp', cv=self.args.numFolds,
+                                       n_jobs=self.args.numJobs, scoring=self.args.scoring)
+            elif self.args.method == "svm_rf":
+                self.dm.classification(hyper_parameters=svm_hyper_parameters, method='svm', cv=self.args.numFolds,
+                                       n_jobs=self.args.numJobs, scoring=self.args.scoring, cache_size=self.args.svm_cache)
+                self.dm.classification(hyper_parameters=rf_hyper_parameters, method='rf', cv=self.args.numFolds,
+                                       n_jobs=self.args.numJobs, scoring=self.args.scoring)
+            else:
+                self.dm.classification(hyper_parameters=svm_hyper_parameters, method='svm', cv=self.args.numFolds,
+                                       n_jobs=self.args.numJobs, scoring=self.args.scoring, cache_size=self.args.svm_cache)
+                self.dm.classification(hyper_parameters=rf_hyper_parameters, method='rf', cv=self.args.numFolds,
+                                       n_jobs=self.args.numJobs, scoring=self.args.scoring)
+                self.dm.classification(hyper_parameters=mlp_hyper_parameters, method='mlp', cv=self.args.numFolds,
+                                       n_jobs=self.args.numJobs, scoring=self.args.scoring)
+
 class DeepMicrobiome(object):
     def __init__(self, data, seed, data_dir):
         self.t_start = time.time()
@@ -473,151 +566,22 @@ if __name__ == '__main__':
 
     args = parse_args()
     # set labels for diseases and controls
-    label_dict = {
-        # Controls
-        'n': 0,
-        # Chirrhosis
-        'cirrhosis': 1,
-        # Colorectal Cancer
-        'cancer': 1, 'small_adenoma': 0,
-        # IBD
-        'ibd_ulcerative_colitis': 1, 'ibd_crohn_disease': 1,
-        # T2D and WT2D
-        't2d': 1,
-        # Obesity
-        'leaness': 0, 'obesity': 1,
-    }
-
+    label_dict = get_label_dict()
     # hyper-parameter grids for classifiers
-    rf_hyper_parameters = [{'n_estimators': [s for s in range(100, 1001, 200)],
-                            'max_features': ['sqrt', 'log2'],
-                            'min_samples_leaf': [1, 2, 3, 4, 5],
-                            'criterion': ['gini', 'entropy']
-                            }, ]
-    #svm_hyper_parameters_pasolli = [{'C': [2 ** s for s in range(-5, 16, 2)], 'kernel': ['linear']},
-    #                        {'C': [2 ** s for s in range(-5, 16, 2)], 'gamma': [2 ** s for s in range(3, -15, -2)],
-    #                         'kernel': ['rbf']}]
-    svm_hyper_parameters = [{'C': [2 ** s for s in range(-5, 6, 2)], 'kernel': ['linear']},
-                            {'C': [2 ** s for s in range(-5, 6, 2)], 'gamma': [2 ** s for s in range(3, -15, -2)],'kernel': ['rbf']}]
-    mlp_hyper_parameters = [{'numHiddenLayers': [1, 2, 3],
-                             'epochs': [30, 50, 100, 200, 300],
-                             'numUnits': [10, 30, 50, 100],
-                             'dropout_rate': [0.1, 0.3],
-                             },]
+    rf_hyper_parameters = get_rf_hyper_parameters()
 
-
-    # run exp function
-    def run_exp(seed):
-
-        # create an object and load data_test
-        ## no argument founded
-        if args.data == None and args.custom_data == None:
-            print("[Error] Please specify an input file. (use -h option for help)")
-            exit()
-        ## provided data_test
-        elif args.data != None:
-            dm = DeepMicrobiome(data=args.data + '.txt', seed=seed, data_dir=args.data_dir)
-
-            ## specify feature string
-            feature_string = ''
-            data_string = str(args.data)
-            if data_string.split('_')[0] == 'abundance':
-                feature_string = "k__"
-            if data_string.split('_')[0] == 'marker':
-                feature_string = "gi|"
-
-            ## load data_test into the object
-            dm.load_data(feature_string=feature_string, label_string='disease', label_dict=label_dict,
-                         dtype=dtypeDict[args.dataType])
-
-        ## user data_test
-        elif args.custom_data != None:
-
-            ### without labels - only conducting representation learning
-            if args.custom_data_labels == None:
-                dm = DeepMicrobiome(data=args.custom_data, seed=seed, data_dir=args.data_dir)
-                dm.load_custom_data(dtype=dtypeDict[args.dataType])
-
-            ### with labels - conducting representation learning + classification
-            else:
-                dm = DeepMicrobiome(data=args.custom_data, seed=seed, data_dir=args.data_dir)
-                dm.load_custom_data_with_labels(label_data=args.custom_data_labels, dtype=dtypeDict[args.dataType])
-
-        else:
-            exit()
-
-        num_rl_required = args.pca + args.ae + args.rp + args.vae + args.cae
-
-        if num_rl_required > 1:
-            raise ValueError('No multiple dimensionality Reduction')
-
-        # time check after data_test has been loaded
-        dm.t_start = time.time()
-
-        # Representation learning (Dimensionality reduction)
-        if args.pca:
-            dm.pca()
-        if args.ae:
-            dm.ae(dims=[int(i) for i in args.dims.split(',')], act=args.act, epochs=args.max_epochs, loss=args.aeloss,
-                  latent_act=args.ae_lact, output_act=args.ae_oact, patience=args.patience, no_trn=args.no_trn)
-        if args.vae:
-            dm.vae(dims=[int(i) for i in args.dims.split(',')], act=args.act, epochs=args.max_epochs, loss=args.aeloss, output_act=args.ae_oact,
-                   patience= 25 if args.patience==20 else args.patience, beta=args.vae_beta, warmup=args.vae_warmup, warmup_rate=args.vae_warmup_rate, no_trn=args.no_trn)
-        if args.cae:
-            dm.cae(dims=[int(i) for i in args.dims.split(',')], act=args.act, epochs=args.max_epochs, loss=args.aeloss, output_act=args.ae_oact,
-                   patience=args.patience, rf_rate = args.rf_rate, st_rate = args.st_rate, no_trn=args.no_trn)
-        if args.rp:
-            dm.rp()
-
-        # write the learned representation of the training set as a file
-        if args.save_rep:
-            if num_rl_required == 1:
-                rep_file = dm.data_dir + "results/" + dm.prefix + dm.data + "_rep.csv"
-                pd.DataFrame(dm.X_train).to_csv(rep_file, header=None, index=None)
-                print("The learned representation of the training set has been saved in '{}'".format(rep_file))
-            else:
-                print("Warning: Command option '--save_rep' is not applied as no representation learning or dimensionality reduction has been conducted.")
-
-        # Classification
-        if args.no_clf or (args.data == None and args.custom_data_labels == None):
-            print("Classification task has been skipped.")
-        else:
-            # turn off GPU
-            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-            importlib.reload(tensorflow.keras)# WTF is this??
-
-            # training classification models
-            if args.method == "svm":
-                dm.classification(hyper_parameters=svm_hyper_parameters, method='svm', cv=args.numFolds,
-                                  n_jobs=args.numJobs, scoring=args.scoring, cache_size=args.svm_cache)
-            elif args.method == "rf":
-                dm.classification(hyper_parameters=rf_hyper_parameters, method='rf', cv=args.numFolds,
-                                  n_jobs=args.numJobs, scoring=args.scoring)
-            elif args.method == "mlp":
-                dm.classification(hyper_parameters=mlp_hyper_parameters, method='mlp', cv=args.numFolds,
-                                  n_jobs=args.numJobs, scoring=args.scoring)
-            elif args.method == "svm_rf":
-                dm.classification(hyper_parameters=svm_hyper_parameters, method='svm', cv=args.numFolds,
-                                  n_jobs=args.numJobs, scoring=args.scoring, cache_size=args.svm_cache)
-                dm.classification(hyper_parameters=rf_hyper_parameters, method='rf', cv=args.numFolds,
-                                  n_jobs=args.numJobs, scoring=args.scoring)
-            else:
-                dm.classification(hyper_parameters=svm_hyper_parameters, method='svm', cv=args.numFolds,
-                                  n_jobs=args.numJobs, scoring=args.scoring, cache_size=args.svm_cache)
-                dm.classification(hyper_parameters=rf_hyper_parameters, method='rf', cv=args.numFolds,
-                                  n_jobs=args.numJobs, scoring=args.scoring)
-                dm.classification(hyper_parameters=mlp_hyper_parameters, method='mlp', cv=args.numFolds,
-                                  n_jobs=args.numJobs, scoring=args.scoring)
-
-
+    svm_hyper_parameters = get_svm_hyper_parameters()
+    mlp_hyper_parameters = get_mlp_hyper_parameters()
 
     # run experiments
     try:
         if args.repeat > 1:
             for i in range(args.repeat):
-                run_exp(i)
+                experience = Experience(args, i)
+                experience.run()
         else:
-            run_exp(args.seed)
+            experience = Experience(args, args.seed)
+            experience.run()
 
     except OSError as error:
         exception_handle.log_exception(error)

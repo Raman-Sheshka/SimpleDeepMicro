@@ -1,7 +1,75 @@
 # argparse
 import argparse
 import numpy as np
+from pydantic import BaseModel, Field, validator
+from typing import Optional, List
 
+class UserChoices(BaseModel):
+    data_test: Optional[str] = Field(None, description="Prefix of dataset to open", choices=[
+        "abundance_Cirrhosis", "abundance_Colorectal", "abundance_IBD",
+        "abundance_Obesity", "abundance_T2D", "abundance_WT2D",
+        "marker_Cirrhosis", "marker_Colorectal", "marker_IBD",
+        "marker_Obesity", "marker_T2D", "marker_WT2D"
+    ])
+    custom_data: Optional[str] = Field(None, description="Filename for custom input data under the 'data_test' folder")
+    custom_data_labels: Optional[str] = Field(None, description="Filename for custom input labels under the 'data_test' folder")
+
+    data_dir: str = Field("", description="Custom path for both '/data_test' and '/results' folders")
+    dataType: str = Field("float64", description="Specify data type for numerical values", choices=["float16", "float32", "float64"])
+
+    seed: int = Field(0, description="Random seed for train and test split")
+    repeat: int = Field(5, description="Repeat experiment x times by changing random seed for splitting data")
+
+    numFolds: int = Field(5, description="The number of folds for cross-validation in the training set")
+
+    method: str = Field("all", description="Classifier(s) to use", choices=["all", "svm", "rf", "mlp", "svm_rf"])
+
+    svm_cache: int = Field(1000, description="Cache size for SVM run")
+
+    numJobs: int = Field(-2, description="The number of jobs used in parallel GridSearch")
+    scoring: str = Field("roc_auc", description="Metrics used to optimize method", choices=['roc_auc', 'accuracy', 'f1', 'recall', 'precision'])
+
+    pca: bool = Field(False, description="Run PCA")
+    rp: bool = Field(False, description="Run Random Projection")
+
+    ae: bool = Field(False, description="Run Autoencoder or Deep Autoencoder")
+    vae: bool = Field(False, description="Run Variational Autoencoder")
+    cae: bool = Field(False, description="Run Convolutional Autoencoder")
+    save_rep: bool = Field(False, description="Write the learned representation of the training set as a file")
+
+    ae_loss: Optional[str] = Field("mse", description="Set autoencoder reconstruction loss function", choices=['mse', 'binary_crossentropy'])
+    ae_output_act: bool = Field(False, description="Output layer sigmoid activation function on/off")
+    act: str = Field("relu", description="Activation function for hidden layers", choices=['relu', 'sigmoid'])
+    dims: str = Field("50", description="Comma-separated dimensions for deep representation learning")
+    max_epochs: int = Field(2000, description="Maximum epochs when training autoencoder")
+    patience: int = Field(20, description="The number of epochs which can be executed without the improvement in validation loss")
+    ae_lact: bool = Field(False, description="Latent layer activation function on/off")
+    vae_beta: float = Field(1.0, description="Weight of KL term")
+    vae_warmup: bool = Field(False, description="Turn on warm up")
+    vae_warmup_rate: float = Field(0.01, description="Warm-up rate which will be multiplied by current epoch to calculate current beta")
+    rf_rate: float = Field(0.1, description="What percentage of input size will be the receptive field (kernel) size?")
+    st_rate: float = Field(0.25, description="What percentage of receptive field (kernel) size will be the stride size?")
+    no_trn: bool = Field(False, description="Stop before learning representation to see specified autoencoder structure")
+    no_clf: bool = Field(False, description="Skip classification tasks")
+    exec_mode: str = Field(..., description="Execution mode", choices=["test", "run"])
+
+    @validator('dims')
+    def validate_dims(cls, v):
+        try:
+            dims = [int(dim) for dim in v.split(',')]
+            if not all(dim > 0 for dim in dims):
+                raise ValueError
+        except ValueError:
+            raise ValueError("dims must be a comma-separated list of positive integers")
+        return v
+
+    @validator('data_dir')
+    def validate_data_dir(cls, v, values):
+        if 'exec_mode' in values and values['exec_mode'] == 'test':
+            return '/data_test'
+        elif 'exec_mode' in values and values['exec_mode'] == 'run' and not v:
+            raise ValueError("data_dir must be provided in 'run' mode")
+        return v
 
 def parse_args():
     """
@@ -57,9 +125,9 @@ def parse_args():
     # detailed options for representation learning
     ## common options
     common = parser.add_argument_group('Common options for representation learning (SAE,DAE,VAE,CAE)')
-    common.add_argument("--aeloss", help="set autoencoder reconstruction loss function", type=str,
+    common.add_argument("--ae_loss", help="set autoencoder reconstruction loss function", type=str,
                         choices=['mse', 'binary_crossentropy'], default='mse')
-    common.add_argument("--ae_oact", help="output layer sigmoid activation function on/off", action='store_true')
+    common.add_argument("--ae_output_act", help="output layer sigmoid activation function on/off", action='store_true')
     common.add_argument("-a", "--act", help="activation function for hidden layers", type=str, default='relu',
                         choices=['relu', 'sigmoid'])
     common.add_argument("-dm", "--dims",
