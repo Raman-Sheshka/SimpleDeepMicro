@@ -21,7 +21,7 @@ DeepMicro is a deep representation learning framework exploiting various autoenc
 ```
 ~$ pip install --upgrade pip && pip install numpy==1.16.2 && pip install pandas==0.24.2 && pip install scipy==1.2.1 && pip install scikit-learn==0.20.3 && pip install matplotlib==3.0.3 && pip install psutil==5.6.1 && pip install keras==2.2.4
 ```
-* If your machine is *not* equipped with GPU, install tensorflow CPU version 
+* If your machine is *not* equipped with GPU, install tensorflow CPU version
   ```
   ~$ pip install tensorflow==1.13.1
   ```
@@ -50,18 +50,18 @@ Namespace(act='relu', ae=False, ae_lact=False, ae_oact=False, aeloss='mse', cae=
 X_train.shape:  (80, 200)
 Classification task has been skipped.
 ```
-    
+
 __3. Suppose that we want to reduce the number of dimensions of our data to 20 from 200 using a *shallow autoencoder*.__ Note that `--save_rep` argument will save your representation under the `/results` folder.
 ```
 ~$ python DM.py -r 1 --no_clf -cd UserDataExample.csv --ae -dm 20 --save_rep
 ```
-    
+
 __4. Suppose that we want to use *deep autoencoder* with 2 hidden layers which has 100 units and 40 units, respectively.__ Let the size of latent layer to be 20. We are going to see the structure of deep autoencoder first.
 ```
 ~$ python DM.py -r 1 --no_clf -cd UserDataExample.csv --ae -dm 100,40,20 --no_trn
 ```
 It looks fine. Now, run the model and get the learned representation.
-```    
+```
 ~$ python DM.py -r 1 --no_clf -cd UserDataExample.csv --ae -dm 100,40,20 --save_rep
 ```
 __5. We can try *variational autoencoder* and * convolutional autoencoder* as well.__ Note that you can see detailed argument description by using `-h` argument.
@@ -89,7 +89,7 @@ y_test.shape:  (16,)
 Classification task has been skipped.
 ```
 
-__3. Suppose that we want to directly apply SVM algorithm on our data without representation learning.__  Remove `--no_clf` command and specify classification method with `-m svm` argument (If you don't specify classification algorithm, all three algorithms will be running). 
+__3. Suppose that we want to directly apply SVM algorithm on our data without representation learning.__  Remove `--no_clf` command and specify classification method with `-m svm` argument (If you don't specify classification algorithm, all three algorithms will be running).
 ```
 ~$ python DM.py -r 1 -cd UserDataExample.csv -cl UserLabelExample.csv -m svm
 ```
@@ -106,7 +106,7 @@ __5. You can repeat the same experiment by changing seeds for random partitionin
 ```
 
 ### Reproducing the experiments described in our paper
-__1. Unzip `abundance.zip` and `marker.zip` files under the `/data` directory.__ 
+__1. Unzip `abundance.zip` and `marker.zip` files under the `/data` directory.__
 ```
 ~$ cd data
 ~$ unzip abundance.zip && unzip marker.zip
@@ -114,7 +114,7 @@ __1. Unzip `abundance.zip` and `marker.zip` files under the `/data` directory.__
 ```
 __2. Specify dataset name to run.__ Choose dataset you want to run. You can choose one of the followings: `abundance_Cirrhosis`, `abundance_Colorectal`, `abundance_IBD`, `abundance_Obesity`, `abundance_T2D`, `abundance_WT2D`, `marker_Cirrhosis`, `marker_Colorectal`, `marker_IBD`, `marker_Obesity`, `marker_T2D`, `marker_WT2D`. Note that WT2D indicates European Women cohort (EW-T2D) and T2D indicates Chinese cohort (C-T2D).
 
-__3. Run experiments, specifying autoencoder details.__ 
+__3. Run experiments, specifying autoencoder details.__
 Suppose we are going to run the best representation model on marker profile of EW-T2D dataset as shown in Table S1. Then, all three classification algorithms are trained and evaluated. We are going to repeat this process 5 times with the following command:
 ```
 ~$ python DM.py -d marker_WT2D --ae -dm 256
@@ -136,3 +136,34 @@ The result will be saved under `/results` folder in a file whose name is ended w
 
 ## Citation
 Oh, Min, and Liqing Zhang. "DeepMicro: deep representation learning for disease prediction based on microbiome data." Scientific reports 10.1 (2020): 1-9.
+
+
+## Command Line Arguments Description
+
+### Data Loading
+- `-d, --data`: Dataset prefix (e.g. abundance_Cirrhosis)
+- `-cd, --custom_data`: Custom input data filename in 'data' folder
+- `-cl, --custom_data_labels`: Custom input labels filename in 'data' folder
+- `-p, --data_dir`: Custom path for 'data' and 'results' folders
+- `-dt, --dataType`: Data type for numerical values (float16/32/64)
+
+### Experiment Design
+- `-s, --seed`: Random seed for train/test split
+- `-r, --repeat`: Number of experiment repetitions
+
+### Classification
+- `-f, --numFolds`: Number of cross-validation folds
+- `-m, --method`: Classifier type
+- `-sc, --svm_cache`: SVM cache size
+- `-t, --numJobs`: Number of parallel jobs
+- `--scoring`: Optimization metric
+
+### Representation Learning
+- `--pca`: Enable PCA
+- `--rp`: Enable Random Projection
+- `--ae`: Enable Autoencoder
+- `--vae`: Enable VAE
+- `--cae`: Enable CAE
+- `--save_rep`: Save learned representations
+- `--aeloss`: Autoencoder loss function
+- `--ae_oact`: Output layer sigmoid activation
